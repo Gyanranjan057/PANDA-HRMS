@@ -2,6 +2,7 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
+import authRoutes from './routes/authRoutes.js'
 import taskRoutes from './routes/taskRoutes.js'
 import { notFound, errorHandler } from './middlewares/errorHandelr.js'
 import { toTaskCode } from './utils/taskCode.js'
@@ -15,6 +16,8 @@ const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch
 app.use(helmet())
 app.use(cors({ origin: process.env.FRONTEND_ORIGIN || /^http:\/\/localhost:\d+$/ }))
 app.use(express.json({ limit: '1mb' }))
+
+app.use('/api/auth', authRoutes)
 
 app.get('/api/health', wrap(async (_req, res) => {
   await pool.query('SELECT 1')

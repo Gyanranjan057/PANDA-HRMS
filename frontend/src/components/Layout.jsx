@@ -22,14 +22,18 @@ export default function Layout() {
   const [open, setOpen] = useState(false)
   const [compact, setCompact] = useState(false)
   const [query, setQuery] = useState('')
-  const [theme, setTheme] = useState(() => localStorage.theme || 'dark')
+  const [theme, setTheme] = useState(() => localStorage.getItem('panda-theme') || localStorage.theme || 'dark')
   const [toast, setToast] = useState('')
   const [notes, setNotes] = useStore('notifs_v3', [])
   const user = getCurrentSession()?.user || {}
   const role = String(user.role || '').trim().toLowerCase()
   const admin = ['admin', 'administrator', 'hr', 'hr admin', 'hr super admin', 'superadmin'].includes(role)
 
-  useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.theme = theme }, [theme])
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.theme = theme
+    localStorage.setItem('panda-theme', theme)
+  }, [theme])
 
   useEffect(() => {
     const onResize = () => { if (window.innerWidth >= 1024) setOpen(false); else setCompact(false) }
@@ -59,10 +63,6 @@ export default function Layout() {
       <div className="flex min-h-[calc(100vh-80px)]">
         {open && <button type="button" aria-label="Close sidebar" onClick={() => setOpen(false)} className="fixed inset-0 top-14 z-20 bg-black/60 sm:top-24 lg:hidden" />}
         <aside className={`fixed bottom-0 left-0 top-14 z-30 flex w-64 flex-col gap-1 overflow-y-auto border-r border-line bg-side p-4 transition-all duration-300 sm:top-24 lg:sticky lg:top-0 lg:h-[calc(100vh-96px)] lg:shrink-0 ${compact ? 'lg:w-20' : 'lg:w-64'} ${open ? 'translate-x-0' : '-translate-x-full invisible lg:visible lg:translate-x-0'}`}>
-          <div className="mb-3 flex items-center gap-2">
-            <button type="button" title={compact ? 'Expand sidebar' : 'Collapse sidebar'} aria-label={compact ? 'Expand sidebar' : 'Collapse sidebar'} onClick={toggleSide} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border-2 border-mint font-bold text-mint hover:bg-mint/10">P</button>
-            {!compact && <strong className="text-lg">PANDA</strong>}
-          </div>
           {navGroups.map(group => (
             <section className="mb-5" key={group.title}>
               {!compact && <p className="mb-2 px-2 text-[9px] font-extrabold tracking-[0.18em] text-mute opacity-75">{group.title}</p>}

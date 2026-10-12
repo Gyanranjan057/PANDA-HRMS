@@ -60,3 +60,14 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
+
+
+CREATE TABLE users(id INT AUTO_INCREMENT PRIMARY KEY,name VARCHAR(100),email VARCHAR(120) NOT NULL UNIQUE,password_hash VARCHAR(100) NOT NULL,role ENUM('Admin','HR','Manager','Employee') DEFAULT 'Employee',employee_id INT NULL,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(employee_id) REFERENCES employees(id));
+CREATE TABLE leave_types(id INT AUTO_INCREMENT PRIMARY KEY,name VARCHAR(50) NOT NULL UNIQUE,days_per_year INT DEFAULT 12);
+CREATE TABLE attendance(id INT AUTO_INCREMENT PRIMARY KEY,employee_id INT NOT NULL,date DATE NOT NULL,check_in TIME,check_out TIME,working_hours DECIMAL(4,2) DEFAULT 0,status ENUM('Present','Late','Absent','On Leave','WFH') DEFAULT 'Present',remarks VARCHAR(200),created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,UNIQUE(employee_id,date),INDEX(date),FOREIGN KEY(employee_id) REFERENCES employees(id));
+
+CREATE TABLE attendance(id INT AUTO_INCREMENT PRIMARY KEY,employee_id INT NOT NULL,date DATE NOT NULL,check_in TIME,check_out TIME,working_hours DECIMAL(4,2) DEFAULT 0,status ENUM('Present','Late','Absent','On Leave','WFH') DEFAULT 'Present',remarks VARCHAR(200),created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,UNIQUE(employee_id,date),INDEX(date),FOREIGN KEY(employee_id) REFERENCES employees(id));
+
+CREATE TABLE leave_requests(id INT AUTO_INCREMENT PRIMARY KEY,employee_id INT NOT NULL,leave_type_id INT NOT NULL,start_date DATE,end_date DATE,duration INT,reason VARCHAR(255),status ENUM('Pending','Approved','Rejected') DEFAULT 'Pending',approved_by INT NULL,remarks VARCHAR(200),INDEX(status),FOREIGN KEY(employee_id) REFERENCES employees(id),FOREIGN KEY(leave_type_id) REFERENCES leave_types(id),FOREIGN KEY(approved_by) REFERENCES users(id));
+
+CREATE TABLE payroll(id INT AUTO_INCREMENT PRIMARY KEY,employee_id INT NOT NULL,month TINYINT,year SMALLINT,basic_salary DECIMAL(10,2),allowances DECIMAL(10,2) DEFAULT 0,bonus DECIMAL(10,2) DEFAULT 0,deductions DECIMAL(10,2) DEFAULT 0,tax DECIMAL(10,2) DEFAULT 0,gross_salary DECIMAL(10,2),net_salary DECIMAL(10,2),payment_status ENUM('Pending','Paid') DEFAULT 'Pending',payment_date DATE,UNIQUE(employee_id,month,year),FOREIGN KEY(employee_id) REFERENCES employees(id));

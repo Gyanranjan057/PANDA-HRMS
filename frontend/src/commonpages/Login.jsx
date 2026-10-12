@@ -8,7 +8,7 @@ export default function Login({ onLoginSuccess }) {
   const navigate = useNavigate();
 
   // Theme State: false for Light, true for Dark
-  const [isDarkMode, setIsDarkMode] = useState(
+  const [isDarkMode] = useState(
     () => localStorage.getItem("panda-theme") !== "light",
   );
   const [formData, setFormData] = useState({
@@ -16,16 +16,6 @@ export default function Login({ onLoginSuccess }) {
     password: "",
     rememberMe: true,
   });
-  const toggleTheme = () => {
-    setIsDarkMode((previous) => {
-      const next = !previous;
-
-      localStorage.setItem("panda-theme", next ? "dark" : "light");
-
-      return next;
-    });
-  };
-
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -330,19 +320,8 @@ export default function Login({ onLoginSuccess }) {
       {/* 3D Global World Canvas */}
       <canvas ref={canvasRef} className="world-canvas" />
 
-      {/* Top Right Theme Toggle Switch */}
-      <button
-        type="button"
-        className="theme-switch-btn"
-        onClick={toggleTheme}
-        title="Toggle Theme"
-      >
-        {isDarkMode ? "☀️" : "🌙"}
-      </button>
-
       {/* Atmospheric Background Watermark */}
       <div className="world-watermark">
-        <span className="watermark-tag">GLOBAL INFOTECH MATRIX</span>
         <h2 className="watermark-title">PANDA WORKSPACE</h2>
       </div>
 
@@ -591,23 +570,6 @@ export default function Login({ onLoginSuccess }) {
           </button>
         </form>
 
-        {/* Bottom Security Footer */}
-        <div className="glass-card-bottom">
-          <div className="crypto-badge">
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#10b981"
-              strokeWidth="2"
-            >
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-            </svg>
-            <span>256-BIT QUANTUM ENCRYPTED</span>
-          </div>
-          <span className="telemetry-node">NODE • US-EAST-04</span>
-        </div>
       </div>
 
       {/* Scoped CSS with 100% Solid Hex Colors */}
