@@ -1,6 +1,5 @@
  
 
-
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { ClipboardList, LayoutGrid } from 'lucide-react'
@@ -37,7 +36,6 @@ export default function Layout() {
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
-
   const toggleSide = () => window.innerWidth >= 1024 ? setCompact(value => !value) : setOpen(value => !value)
   const handleThemeToggle = isDarkMode => {
     const nextTheme = isDarkMode ? 'dark' : 'light'
