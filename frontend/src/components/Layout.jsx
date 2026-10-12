@@ -58,10 +58,14 @@
 
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutGrid, Search, Bell, Moon, ShieldCheck, User } from 'lucide-react'
+import { Bell, LayoutGrid, ClipboardList, Search, Moon, ShieldCheck, User } from 'lucide-react'
+import { useStore } from '../ui'
 export default function Layout() {
   const [s, setS] = useState({ present: 0, total: 0, pendingLeaves: 0, monthlyPayroll: 0, projects: 0, departments: 0, teams: 0 }), [open, setOpen] = useState(false), [admin, setAdmin] = useState(true), [compact, setCompact] = useState(false)
-  const [theme, setTheme] = useState(localStorage.theme || 'dark'), [toast, setToast] = useState(''), [notes, setNotes] = useState([]), [bell, setBell] = useState(false)
+  const [query, setQuery] = useState('')
+  const [theme, setTheme] = useState(localStorage.theme || 'dark'), [toast, setToast] = useState('')
+  const [notes, setNotes] = useStore('notifs_v3', [])
+  const [bellOpen, setBellOpen] = useState(false)
   const go = useNavigate(), user = { name: 'Admin', role: 'Admin' }, d = new Date()
   const isStaff = user.role !== 'Employee'
   useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.theme = theme }, [theme])
@@ -78,7 +82,6 @@ export default function Layout() {
       <img src="/logo.png" alt="" className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; e.target.parentNode.append('P') }} />
     </button>)
   const flip = () => { const t = theme === 'dark' ? 'light' : 'dark'; setTheme(t); setToast(`Switched to Reference ${t === 'dark' ? 'Dark Theme (Teal & Mint)' : 'Light Theme (Orange & White)'}`); setTimeout(() => setToast(''), 2500) }
-  const read = n => setNotes(notes.map(x => x.id === n.id ? { ...x, is_read: 1 } : x))
   const Item = ({ to, label, Icon, meta, dot }) => (
     <NavLink to={to} end={to === '/'} onClick={() => setOpen(false)}
       className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm ${isActive ? 'bg-mint/10 text-mint border border-mint/60' : 'text-mute hover:bg-mint/5'}`}>
@@ -93,18 +96,38 @@ export default function Layout() {
           <div className="flex items-center gap-2 mb-3">{logoBtn()}
             {!compact && <b className="text-lg">PANDA</b>}</div>
           {!compact && isStaff && <div className="card p-1 flex text-xs mb-3">{[['Admin Mode', true, ShieldCheck], ['Employee View', false, User]].map(([l, v, I]) =>
-            <button key={l} onClick={() => setAdmin(v)} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg ${admin === v ? 'btn-on border' : 'text-mute'}`}><I size={12} />{l}</button>)}</div>}
+            <button key={l} onClick={() => { setAdmin(v); setQuery('') }} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg ${admin === v ? 'btn-on border' : 'text-mute'}`}><I size={12} />{l}</button>)}</div>}
           <Item to="/" label="Dashboard" Icon={LayoutGrid} />
+          <Item to="/tasks" label="Tasks" Icon={ClipboardList} />
         </aside>
         <div className="flex-1 min-w-0">
           <div className="h-[70px] border-b border-line bg-side flex items-center gap-3 px-4">
             {logoBtn('lg:hidden')}
-             {admin ? <div className="flex-1 relative"><Search size={14} className="absolute left-3 top-3 text-mute" /><input className="inp !pl-9" placeholder="Search employee, team, leave, payroll..." onKeyDown={e => e.key === 'Enter' && go('/')} onChange={e => window.dispatchEvent(new CustomEvent('gsearch', { detail: e.target.value }))} /></div> : <div className="flex-1" />}
+             {admin ? <div className="flex-1 relative"><Search size={14} className="absolute left-3 top-3 text-mute" /><input className="inp !pl-9" placeholder="Search employee, team, leave, payroll..." value={query} onKeyDown={e => e.key === 'Enter' && go('/')} onChange={e => setQuery(e.target.value)} /></div> : <div className="flex-1" />}
              <button className="btn ml-auto sm:ml-0 !rounded-full" onClick={flip}>{theme === 'dark' ? <Moon size={13} /> : <Moon size={13} />}{theme === 'dark' ? '' : ''}</button>
-             {admin && <div className="relative"><button className="card p-2.5 relative" onClick={() => setBell(!bell)}><Bell size={16} />{notes.some(n => !n.is_read) && <i className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-mint" />}</button>
-              {bell && <div className="card absolute right-0 top-12 w-64 p-2 z-40 shadow-xl">{notes.length ? notes.map(n => <button key={n.id} onClick={() => read(n)} className={`block w-full text-left text-xs p-2 rounded ${n.is_read ? 'text-mute' : 'font-semibold'}`}>{n.message}</button>) : <p className="text-xs text-mute p-2">No notifications</p>}</div>}</div>}
+             <div className="relative">
+               <button
+                 type="button"
+                 className="card relative p-2.5"
+                 onClick={() => setBellOpen(value => !value)}
+                 aria-label="Notifications"
+                 aria-expanded={bellOpen}
+               >
+                 <Bell size={16} />
+                 {notes.length > 0 && <i className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-mint" />}
+               </button>
+               {bellOpen && <div className="card absolute right-0 top-12 z-40 w-64 p-2 shadow-xl">
+                 <div className="flex items-center justify-between border-b border-line px-2 pb-2">
+                   <span className="text-sm font-semibold">Notifications</span>
+                   {notes.length > 0 && <button type="button" className="text-xs text-mint" onClick={() => setNotes([])}>Clear</button>}
+                 </div>
+                 {notes.length > 0
+                   ? notes.map((note, index) => <p key={`${note}-${index}`} className="border-b border-line px-2 py-2 text-xs text-mute">{note}</p>)
+                   : <p className="px-2 py-3 text-xs text-mute">No notifications</p>}
+               </div>}
+             </div>
           </div>
-          <main className="p-4 lg:p-6"><Outlet context={{ s, user, admin }} /></main>
+          <main className="p-4 lg:p-6"><Outlet context={{ s, user, admin, query, setNotifications: setNotes }} /></main>
         </div></div>
       {toast && <div className="fixed bottom-4 right-4 card border-mint px-4 py-3 text-xs z-50 flex items-center gap-2"><i className="w-2 h-2 rounded-full bg-mint" />{toast}</div>}
     </div></div>
