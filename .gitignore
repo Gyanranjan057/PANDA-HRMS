@@ -6,9 +6,7 @@ node_modules/
 # Production and build output
 build/
 **/build/
-dist/
-**/dist/
-dist-ssr/
+ 
 
 # Environment variables
 .env
