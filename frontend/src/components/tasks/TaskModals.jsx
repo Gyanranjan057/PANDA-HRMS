@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Avatar, Field, Icon, Modal } from '../../ui'
-import { PRIORITY_META, STATUS_META, STATUS_ORDER, projectMeta } from '../../lib/tasks'
+import { Avatar, Field, Modal } from '../../ui'
+import { PRIORITY_META } from '../../lib/tasks'
 import { PriorityBadge, StatusBadge } from './Badges'
 
 const AssignModal = ({ employees, projects, onSave, onClose }) => {
@@ -173,148 +173,6 @@ const ReassignModal = ({ task, employees, onSave, onClose }) => {
   )
 }
 
-const StatusModal = ({ task, onSave, onClose }) => (
-  <Modal title={`Change status · ${task.id}`} onClose={onClose}>
-    <div className="space-y-2">
-      {STATUS_ORDER.map(status => {
-        const isCurrentStatus = task.status === status
-
-        return (
-          <button
-            key={status}
-            type="button"
-            onClick={() => onSave(task, status)}
-            className={`flex w-full items-center justify-between rounded-xl border p-3 text-left ${
-              isCurrentStatus
-                ? 'border-brand bg-brand/10'
-                : 'border-line hover:border-brand/40'
-            }`}
-          >
-            <span className="flex items-center gap-2 font-semibold">
-              <Icon name={STATUS_META[status].icon} className={`h-4 w-4 ${STATUS_META[status].text}`} />
-              {STATUS_META[status].label}
-            </span>
-            {isCurrentStatus && (
-              <span className="text-xs text-brand">Current</span>
-            )}
-          </button>
-        )
-      })}
-    </div>
-  </Modal>
-)
-
-const UpdateModal = ({ task, onSave, onClose }) => {
-  const [progress, setProgress] = useState(task.progress)
-
-  return (
-    <Modal title={`Update progress · ${task.id}`} onClose={onClose}>
-      <p className="mb-4 text-sm text-mute">{task.title}</p>
-
-      <div className="mb-1 flex justify-between text-sm">
-        <span className="text-mute">Progress</span>
-        <b className="text-brand">{progress}%</b>
-      </div>
-
-      <input
-        type="range"
-        min="0"
-        max="100"
-        step="5"
-        value={progress}
-        onChange={event => setProgress(Number(event.target.value))}
-        className="mb-4 w-full accent-[#10e0a0]"
-      />
-
-      {progress === 100 && (
-        <p className="mb-3 text-xs text-emerald-400">
-          At 100% this deliverable will be marked Finished.
-        </p>
-      )}
-
-      <div className="flex justify-end gap-2">
-        <button type="button" className="btn-ghost" onClick={onClose}>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={() => onSave(task, progress)}
-        >
-          Save progress
-        </button>
-      </div>
-    </Modal>
-  )
-}
-const EmployeeUpdateModal = ({ task, onSave, onClose }) => {
-  const [progress, setProgress] = useState(task.progress)
-  const projectDetails = projectMeta(task.project)
-
-  // status shown on the card while the slider moves (same rule as saving)
-  const previewStatus =
-    progress >= 100
-      ? 'finished'
-      : progress === 0 && task.status === 'todo'
-        ? 'todo'
-        : 'in-progress'
-
-  return (
-    <Modal title={`Update task · ${task.id}`} onClose={onClose} wide>
-      <span
-        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${projectDetails.chip}`}
-      >
-        <Icon name={projectDetails.icon} className="h-3.5 w-3.5" />
-        {task.project}
-      </span>
-
-      <h4 className="mt-3 text-lg font-bold leading-snug">{task.title}</h4>
-      <p className="mt-2 text-sm leading-relaxed text-mute">
-        {task.description}
-      </p>
-
-      <div className="mt-5 flex items-center justify-between text-sm">
-        <span className="text-mute">Status</span>
-        <StatusBadge status={previewStatus} />
-      </div>
-
-      <div className="mb-1 mt-4 flex justify-between text-sm">
-        <span className="text-mute">Progress</span>
-        <b className="text-brand">{progress}%</b>
-      </div>
-
-      <input
-        type="range"
-        min="0"
-        max="100"
-        step="5"
-        value={progress}
-        onChange={event => setProgress(Number(event.target.value))}
-        className="mb-4 w-full accent-[#10e0a0]"
-      />
-
-      {progress === 100 && (
-        <p className="mb-3 text-xs text-emerald-400">
-          At 100% this deliverable will be marked Finished.
-        </p>
-      )}
-
-      <div className="flex justify-end gap-2">
-        <button type="button" className="btn-ghost" onClick={onClose}>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={() => onSave(task, progress)}
-        >
-          Save
-        </button>
-      </div>
-    </Modal>
-  )
-}
-
 const DetailsModal = ({
   task,
   dev,
@@ -335,19 +193,6 @@ const DetailsModal = ({
       {task.description || 'No description provided.'}
     </p>
 
-    <div
-      className="mb-4 h-2 rounded-full bg-app"
-      role="progressbar"
-      aria-valuenow={task.progress}
-      aria-valuemin="0"
-      aria-valuemax="100"
-    >
-      <div
-        className="h-2 rounded-full bg-brand"
-        style={{ width: `${task.progress}%` }}
-      />
-    </div>
-
     <div className="mb-5 flex items-center gap-3">
       <Avatar
         name={dev?.name || '?'}
@@ -357,7 +202,7 @@ const DetailsModal = ({
       <div>
         <p className="font-semibold">{dev?.name || 'Unassigned'}</p>
         <p className="text-xs text-mute">
-          {dev?.role} · {task.progress}% complete
+          {dev?.role}
         </p>
       </div>
     </div>
@@ -385,8 +230,5 @@ const DetailsModal = ({
 export {
   AssignModal,
   ReassignModal,
-  StatusModal,
-  UpdateModal,
-  EmployeeUpdateModal,
   DetailsModal,
 }

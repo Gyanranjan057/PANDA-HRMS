@@ -21,8 +21,8 @@ export const STATUS_META = {
   'in-progress': {
     label: 'In Progress',
     title: 'In Progress Deliverables',
-    desc: 'Active engineering deliverables currently under execution',
-    emptyText: 'There are currently no tasks under execution.',
+    desc: 'Deliverables currently being worked on',
+    emptyText: 'There are currently no tasks in progress.',
     icon: 'bolt',
     badge: 'border-sky-400/40 bg-sky-400/10 text-sky-400',
     text: 'text-sky-400',
@@ -40,7 +40,7 @@ export const STATUS_META = {
   }
 }
 
-export const ALL_META = { title: 'All Project Deliverables', desc: 'Showing all deliverables across To Do, In Progress, and Finished stages', icon: 'grid' }
+export const ALL_META = { title: 'All Project Deliverables', desc: 'Showing all deliverables across To Do and Finished stages', icon: 'grid' }
 
 export const PRIORITY_META = {
   critical: { label: 'Critical', dot: 'bg-rose-500', text: 'text-rose-400' },
@@ -95,6 +95,3 @@ export const groupByProject = (tasks) => {
 
 export const nextTaskId = (tasks) =>
   `TSK-${Math.max(0, ...tasks.map((task) => parseInt(task.id.split('-')[1], 10) || 0)) + 1}`
-
-export const statusFromProgress = (progress, currentStatus) =>
-  progress >= 100 ? 'finished' : progress === 0 && currentStatus === 'todo' ? 'todo' : 'in-progress'

@@ -1,4 +1,4 @@
-USE task;
+USE hrms;
 
 INSERT INTO employees (id, name, role, dept, email, status, avatar) VALUES
 (1, 'Sarah Jenkins', 'Lead Developer', 'Engineering', 'sarah@panda-infotech.io', 'Present', 'https://i.pravatar.cc/96?img=47'),

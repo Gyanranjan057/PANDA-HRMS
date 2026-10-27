@@ -2,6 +2,7 @@ import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import pool from '../config/db.js'
+import { requireAuth } from '../middlewares/auth.middleware.js'
 
 const router = Router()
 
@@ -21,11 +22,13 @@ router.post('/login', wrap(async (req, res) => {
   }
 
   const [rows] = await pool.execute(
-    `SELECT id, name, email, password_hash, role, employee_id
-     FROM users
-     WHERE LOWER(email) = ?
+    `SELECT u.id, u.name, u.email, u.password_hash, u.role, u.employee_id
+     FROM users u
+     LEFT JOIN employees e ON e.id = u.employee_id
+     WHERE LOWER(u.email) = ? OR LOWER(e.employeeId) = ?
+     ORDER BY (LOWER(u.email) = ?) DESC
      LIMIT 1`,
-    [identifier],
+    [identifier, identifier, identifier],
   )
   const account = rows[0]
 
@@ -41,6 +44,28 @@ router.post('/login', wrap(async (req, res) => {
 
   res.json({
     token,
+    user: {
+      id: account.id,
+      name: account.name,
+      email: account.email,
+      role: account.role,
+      employeeId: account.employee_id,
+    },
+  })
+}))
+
+router.get('/me', requireAuth, wrap(async (req, res) => {
+  const [rows] = await pool.execute(
+    `SELECT id, name, email, role, employee_id
+     FROM users WHERE id = ? LIMIT 1`,
+    [req.user.sub],
+  )
+  const account = rows[0]
+  if (!account) {
+    return res.status(401).json({ message: 'Account no longer exists. Please sign in again.' })
+  }
+
+  res.json({
     user: {
       id: account.id,
       name: account.name,

@@ -1,63 +1,6 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-
-const EMPLOYEES = [
-  {
-    id: "EMP-1001",
-    name: "Ananya Das",
-    role: "Frontend Developer",
-    department: "Engineering",
-  },
-
-  {
-    id: "EMP-1002",
-    name: "Rahul Pradhan",
-    role: "Backend Developer",
-    department: "Engineering",
-  },
-
-  {
-    id: "EMP-1003",
-    name: "Priya Mohanty",
-    role: "HR Executive",
-    department: "Human Resources",
-  },
-
-  {
-    id: "EMP-1004",
-    name: "Sourav Sahu",
-    role: "UI/UX Designer",
-    department: "Design",
-  },
-
-  {
-    id: "EMP-1005",
-    name: "Sneha Nayak",
-    role: "QA Engineer",
-    department: "Quality Assurance",
-  },
-
-  {
-    id: "EMP-1006",
-    name: "Amit Behera",
-    role: "Accounts Executive",
-    department: "Finance",
-  },
-
-  {
-    id: "EMP-1007",
-    name: "Pooja Rout",
-    role: "Marketing Executive",
-    department: "Marketing",
-  },
-
-  {
-    id: "EMP-1008",
-    name: "Karan Patnaik",
-    role: "IT Support",
-    department: "IT Support",
-  },
-];
+import { apiRequest } from "../utils/api";
 
 const VIEW_OPTIONS = [
   { value: "weekly", label: "Weekly" },
@@ -112,25 +55,6 @@ const initials = (name) =>
     .join("")
     .toUpperCase();
 
-// DEMO ONLY: deterministic sample attendance. Replace this with API data in production.
-
-const getDemoStatus = (employeeIndex, date) => {
-  const day = date.getDay();
-
-  if (day === 0 || day === 6) return "WO";
-
-  const seed =
-    (date.getDate() * 7 + (date.getMonth() + 1) * 11 + employeeIndex * 13) % 23;
-
-  if (seed === 0 || seed === 9) return "Absent";
-
-  if (seed === 4 || seed === 15 || seed === 21) return "Late";
-
-  if (seed === 6) return "Leave";
-
-  return "Present";
-};
-
 const emptyCounts = () => ({ Present: 0, Absent: 0, Late: 0, Leave: 0, WO: 0 });
 
 const getCounts = (statuses) => {
@@ -178,25 +102,17 @@ function StatusPill({ status }) {
   );
 }
 
-function MetricCard({ title, value, detail, icon, accent }) {
+function MetricCard({ title, value, detail }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-slate-500">{title}</p>
+      <div>
+        <p className="text-sm font-medium text-slate-500">{title}</p>
 
-          <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900">
-            {value}
-          </p>
+        <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900">
+          {value}
+        </p>
 
-          <p className="mt-1 text-xs text-slate-500">{detail}</p>
-        </div>
-
-        <div
-          className={`flex h-11 w-11 items-center justify-center rounded-xl text-xl ${accent}`}
-        >
-          {icon}
-        </div>
+        <p className="mt-1 text-xs text-slate-500">{detail}</p>
       </div>
     </div>
   );
@@ -204,6 +120,8 @@ function MetricCard({ title, value, detail, icon, accent }) {
 
 export default function AllAttendance() {
   const outletContext = useOutletContext() || {};
+  const isAdmin = Boolean(outletContext.admin);
+  const user = outletContext.user;
   const isDarkMode = typeof outletContext.isDarkMode === "boolean"
     ? outletContext.isDarkMode
     : localStorage.getItem("panda-theme") !== "light";
@@ -215,9 +133,53 @@ export default function AllAttendance() {
     toDateInput(new Date()),
   );
 
-  const [search, setSearch] = useState("");
-
   const [department, setDepartment] = useState("All departments");
+  const [employees, setEmployees] = useState([]);
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [loadError, setLoadError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [reload, setReload] = useState(0);
+  const selectedYear = Number(selectedDate.slice(0, 4));
+
+  useEffect(() => {
+    let active = true;
+    setIsLoading(true);
+    setLoadError("");
+    const attendanceRequest = isAdmin
+      ? apiRequest(`/attendance?from=${selectedYear}-01-01&to=${selectedYear}-12-31`)
+      : apiRequest("/attendance/me");
+
+    attendanceRequest
+      .then((result) => {
+        if (!active) return;
+        setEmployees(isAdmin
+          ? (result.employees || []).map((employee) => ({
+            ...employee,
+            dbId: Number(employee.id),
+            id: String(employee.employeeCode || employee.id),
+            role: employee.designation || "",
+          }))
+          : user?.employeeId
+            ? [{
+              dbId: Number(user.employeeId),
+              id: String(user.employeeId),
+              name: user.name || "Employee",
+              department: user.department || "",
+              role: "",
+            }]
+            : []);
+        setAttendanceRecords(result.attendance || []);
+      })
+      .catch((error) => {
+        if (active) setLoadError(error.message);
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedYear, reload, isAdmin, user?.employeeId, user?.name, user?.department]);
 
   const anchorDate = useMemo(
     () => parseLocalDate(selectedDate),
@@ -231,34 +193,34 @@ export default function AllAttendance() {
   }, [anchorDate]);
 
   const filteredEmployees = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return EMPLOYEES.filter((employee) => {
-      const matchesQuery =
-        !query ||
-        employee.name.toLowerCase().includes(query) ||
-        employee.id.toLowerCase().includes(query) ||
-        employee.role.toLowerCase().includes(query);
-
+    return employees.filter((employee) => {
       const matchesDepartment =
         department === "All departments" || employee.department === department;
 
-      return matchesQuery && matchesDepartment;
+      return matchesDepartment;
     });
-  }, [search, department]);
+  }, [employees, department]);
+
+  const attendanceByEmployeeDate = useMemo(
+    () => new Map(attendanceRecords.map((record) => [`${record.employeeId}:${record.date}`, record])),
+    [attendanceRecords],
+  );
+
+  const statusOnDate = useCallback((employee, date) => {
+    if (date.getDay() === 0 || date.getDay() === 6) return "WO";
+    return attendanceByEmployeeDate.get(`${employee.dbId}:${toDateInput(date)}`)?.status || "Not recorded";
+  }, [attendanceByEmployeeDate]);
 
   const weekRows = useMemo(
     () =>
       filteredEmployees.map((employee) => {
-        const index = EMPLOYEES.findIndex((item) => item.id === employee.id);
-
-        const statuses = weekDates.map((date) => getDemoStatus(index, date));
+        const statuses = weekDates.map((date) => statusOnDate(employee, date));
 
         const counts = getCounts(statuses);
 
         return { ...employee, statuses, counts, rate: attendanceRate(counts) };
       }),
-    [filteredEmployees, weekDates],
+    [filteredEmployees, weekDates, statusOnDate],
   );
 
   const monthDates = useMemo(() => {
@@ -278,15 +240,13 @@ export default function AllAttendance() {
   const monthRows = useMemo(
     () =>
       filteredEmployees.map((employee) => {
-        const index = EMPLOYEES.findIndex((item) => item.id === employee.id);
-
-        const statuses = monthDates.map((date) => getDemoStatus(index, date));
+        const statuses = monthDates.map((date) => statusOnDate(employee, date));
 
         const counts = getCounts(statuses);
 
         return { ...employee, counts, rate: attendanceRate(counts) };
       }),
-    [filteredEmployees, monthDates],
+    [filteredEmployees, monthDates, statusOnDate],
   );
 
   const yearRows = useMemo(
@@ -296,34 +256,19 @@ export default function AllAttendance() {
 
         const last = new Date(anchorDate.getFullYear(), monthIndex + 1, 0);
 
-        const dates = Array.from({ length: last.getDate() }, (_, index) =>
-          addDays(first, index),
-        )
-
-          .filter((date) => date.getDay() !== 0 && date.getDay() !== 6);
-
-        const allStatuses = [];
-
-        filteredEmployees.forEach((employee) => {
-          const employeeIndex = EMPLOYEES.findIndex(
-            (item) => item.id === employee.id,
-          );
-
-          dates.forEach((date) =>
-            allStatuses.push(getDemoStatus(employeeIndex, date)),
-          );
-        });
-
-        const counts = getCounts(allStatuses);
+        const records = attendanceRecords.filter((record) =>
+          Number(record.date.slice(5, 7)) === monthIndex + 1,
+        );
+        const counts = getCounts(records.map((record) => record.status));
 
         return {
           month: first.toLocaleDateString("en-IN", { month: "long" }),
           counts,
           rate: attendanceRate(counts),
-          workingDays: dates.length * filteredEmployees.length,
+          workingDays: records.length,
         };
       }),
-    [anchorDate, filteredEmployees],
+    [anchorDate, attendanceRecords],
   );
 
   const allCounts = useMemo(() => {
@@ -498,7 +443,7 @@ export default function AllAttendance() {
 
   const departments = [
     "All departments",
-    ...Array.from(new Set(EMPLOYEES.map((employee) => employee.department))),
+    ...Array.from(new Set(employees.map((employee) => employee.department).filter(Boolean))),
   ];
 
   return (
@@ -507,13 +452,17 @@ export default function AllAttendance() {
       data-theme={theme}
     >
       <div className="mx-auto w-full min-w-0 max-w-[1600px] pb-6">
+        {loadError && (
+          <div role="alert" className="mb-5 rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-700">
+            <p>{loadError}</p>
+            <button type="button" className="mt-2 font-semibold underline" onClick={() => setReload((value) => value + 1)}>
+              Retry
+            </button>
+          </div>
+        )}
+        {isLoading && <p className="mb-5 text-sm text-slate-500">Loading attendance records…</p>}
         <div className="mb-7 flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
-            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{" "}
-              Workforce analytics
-            </div>
-
             <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
               All Attendance
             </h1>
@@ -525,13 +474,15 @@ export default function AllAttendance() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={exportCsv}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50"
-            >
-              <span aria-hidden="true">⇩</span> Export CSV
-            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={exportCsv}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50"
+              >
+                <span aria-hidden="true">⇩</span> Export CSV
+              </button>
+            )}
           </div>
         </div>
 
@@ -601,32 +552,24 @@ export default function AllAttendance() {
             title="Present"
             value={allCounts.Present.toLocaleString("en-IN")}
             detail={`${summaryRate}% attendance rate`}
-            icon="✓"
-            accent="bg-emerald-50 text-emerald-700"
           />
 
           <MetricCard
             title="Absent"
             value={allCounts.Absent.toLocaleString("en-IN")}
             detail="Recorded absences"
-            icon="×"
-            accent="bg-rose-50 text-rose-700"
           />
 
           <MetricCard
             title="Late arrivals"
             value={allCounts.Late.toLocaleString("en-IN")}
             detail="Late check-ins"
-            icon="◷"
-            accent="bg-amber-50 text-amber-700"
           />
 
           <MetricCard
             title="Leave"
             value={allCounts.Leave.toLocaleString("en-IN")}
             detail={`${workingRecords.toLocaleString("en-IN")} working-day records`}
-            icon="▣"
-            accent="bg-sky-50 text-sky-700"
           />
         </div>
 
@@ -650,38 +593,25 @@ export default function AllAttendance() {
               </p>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <label className="relative block">
-                <span className="sr-only">Search employees</span>
+            {isAdmin && (
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <label>
+                  <span className="sr-only">Filter by department</span>
 
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                  ⌕
-                </span>
-
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search name, ID, role..."
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-50 sm:w-60"
-                />
-              </label>
-
-              <label>
-                <span className="sr-only">Filter by department</span>
-
-                <select
-                  value={department}
-                  onChange={(event) => setDepartment(event.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50 sm:w-52"
-                >
-                  {departments.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+                  <select
+                    value={department}
+                    onChange={(event) => setDepartment(event.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50 sm:w-52"
+                  >
+                    {departments.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
           </div>
 
           {view === "weekly" && (
@@ -761,7 +691,7 @@ export default function AllAttendance() {
                         colSpan={9}
                         className="px-5 py-12 text-center text-slate-500"
                       >
-                        No employees match your search.
+                        No employees in this department.
                       </td>
                     </tr>
                   )}
@@ -852,7 +782,7 @@ export default function AllAttendance() {
                         colSpan={7}
                         className="px-5 py-12 text-center text-slate-500"
                       >
-                        No employees match your search.
+                        No employees in this department.
                       </td>
                     </tr>
                   )}
@@ -923,35 +853,18 @@ export default function AllAttendance() {
             </div>
           )}
 
-          <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-            <span>
-              Showing {view === "yearly" ? 12 : filteredEmployees.length}{" "}
-              {view === "yearly"
-                ? "months"
-                : `of ${EMPLOYEES.length} employees`}
-            </span>
-
-            <span className="inline-flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-amber-400" /> Demo data —
-              connect your attendance API for live records.
-            </span>
-          </div>
         </section>
 
-        <p className="mt-5 text-xs leading-5 text-slate-400">
-          Attendance rate counts Present and Late as attended days. Weekends are
-          shown as off days in weekly view and excluded from working-day totals.
-        </p>
       </div>
       <style>{`
 .attendance-app { transition: background-color .2s ease, color .2s ease; }
-.attendance-app[data-theme="dark"] { background: #030a09 !important; color: #e2efeb; }
+.attendance-app[data-theme="dark"] { background: #0a1519 !important; color: #e2efeb; }
 
-        .attendance-app[data-theme="dark"] .bg-slate-50 { background-color: #06110f !important; }
+        .attendance-app[data-theme="dark"] .bg-slate-50 { background-color: #0d1a21 !important; }
 
-        .attendance-app[data-theme="dark"] .bg-white { background-color: #081a17 !important; }
+        .attendance-app[data-theme="dark"] .bg-white { background-color: #12222b !important; }
 
-        .attendance-app[data-theme="dark"] .bg-slate-100 { background-color: #0b211c !important; }
+        .attendance-app[data-theme="dark"] .bg-slate-100 { background-color: #0a1419 !important; }
 
         .attendance-app[data-theme="dark"] .text-slate-950,
 
@@ -967,9 +880,9 @@ export default function AllAttendance() {
 
         .attendance-app[data-theme="dark"] .text-slate-400 { color: #65867c !important; }
 
-        .attendance-app[data-theme="dark"] .border-slate-200 { border-color: #163a31 !important; }
+        .attendance-app[data-theme="dark"] .border-slate-200 { border-color: #1f3541 !important; }
 
-        .attendance-app[data-theme="dark"] .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: #112e26 !important; }
+        .attendance-app[data-theme="dark"] .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: #1f3541 !important; }
 
         .attendance-app[data-theme="dark"] .bg-emerald-50 { background-color: #0a3025 !important; }
 
@@ -1005,7 +918,20 @@ export default function AllAttendance() {
 
         .attendance-app[data-theme="dark"] select { color-scheme: dark; }
 
-        .attendance-app[data-theme="light"] { background: #eef4f2 !important; color: #18332c; }
+        .attendance-app[data-theme="light"] { background: #f8fafc !important; color: #0f172a; }
+        .attendance-app[data-theme="light"] .text-emerald-700 { color: #ea580c !important; }
+        .attendance-app[data-theme="light"] .bg-emerald-50 { background-color: #fff4e8 !important; }
+        .attendance-app[data-theme="light"] .ring-emerald-200 { --tw-ring-color: #fbd9b0 !important; }
+        .attendance-app[data-theme="light"] .bg-emerald-600 { background-color: #ea580c !important; }
+        .attendance-app[data-theme="light"] .hover\\:bg-emerald-700:hover { background-color: #c2410c !important; }
+        .attendance-app[data-theme="light"] .hover\\:border-emerald-300:hover { border-color: #fdba74 !important; }
+        .attendance-app[data-theme="light"] .hover\\:bg-emerald-50:hover { background-color: #fff4e8 !important; }
+        .attendance-app[data-theme="light"] .focus\\:border-emerald-400:focus { border-color: #fb923c !important; }
+        .attendance-app[data-theme="light"] .focus\\:ring-emerald-50:focus { --tw-ring-color: #fff4e8 !important; }
+        .attendance-app[data-theme="light"] .bg-emerald-500 { background-color: #f97316 !important; }
+        .attendance-app[data-theme="light"] .text-emerald-600 { color: #ea580c !important; }
+        .attendance-app[data-theme="light"] .border-emerald-300 { border-color: #fdba74 !important; }
+        .attendance-app[data-theme="light"] .shadow-sm { box-shadow: 0 8px 25px rgba(15, 23, 42, .05) !important; }
       `}</style>
     </div>
   );

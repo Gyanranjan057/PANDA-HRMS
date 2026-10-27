@@ -907,7 +907,7 @@ export default function Login({ onLoginSuccess }) {
            LIGHT THEME DEFINITIONS (SOLID HEX ONLY)
            ======================================================== */
         .theme-light {
-          background-color: #f4f8f7;
+          background-color: #f8fafc;
           color: #0f172a;
         }
 
@@ -917,24 +917,33 @@ export default function Login({ onLoginSuccess }) {
           border: 1px solid #cbd5e1;
         }
 
+        .theme-light .pulsing-beacon {
+          background-color: #ea580c;
+          box-shadow: 0 0 8px #fb923c;
+        }
+
+        .theme-light .field-icon svg {
+          stroke: #ea580c;
+        }
+
         .theme-light .watermark-tag {
-          color: #059669;
+          color: #ea580c;
           opacity: 0.65;
         }
 
         .theme-light .watermark-title {
-          color: #d1fae5;
+          color: #ffedd5;
         }
 
         .theme-light .glass-login-box {
-          background-color: #ffffff;
-          border: 1px solid #a7f3d0;
-          box-shadow: 0 20px 45px #cbd5e1, 0 0 25px #d1fae5;
+          background-color: rgba(255, 255, 255, 0.78);
+          border: 1px solid #fdba74;
+          box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12), 0 0 25px #fff4e8;
         }
 
         .theme-light .radar-status-badge {
-          background-color: #ecfdf5;
-          border: 1px solid #a7f3d0;
+          background-color: rgba(255, 244, 232, 0.7);
+          border: 1px solid #fdba74;
         }
 
         .theme-light .radar-server {
@@ -942,13 +951,13 @@ export default function Login({ onLoginSuccess }) {
         }
 
         .theme-light .radar-tag {
-          background-color: #d1fae5;
-          color: #047857;
+          background-color: #fff4e8;
+          color: #c2410c;
         }
 
         .theme-light .cyber-panda-icon {
-          background-color: #ecfdf5;
-          border: 1px solid #a7f3d0;
+          background-color: rgba(255, 244, 232, 0.7);
+          border: 1px solid #fdba74;
           box-shadow: 0 4px 14px #e2e8f0;
         }
 
@@ -957,7 +966,7 @@ export default function Login({ onLoginSuccess }) {
         }
 
         .theme-light .company-subtext {
-          color: #059669;
+          color: #ea580c;
         }
 
         .theme-light .error-toast {
@@ -981,9 +990,9 @@ export default function Login({ onLoginSuccess }) {
         }
 
         .theme-light .glass-input-wrapper input:focus {
-          border-color: #10b981;
+          border-color: #fb923c;
           background-color: #ffffff;
-          box-shadow: 0 0 10px #d1fae5;
+          box-shadow: 0 0 10px #ffedd5;
         }
 
         .theme-light .eye-toggle {
@@ -999,9 +1008,19 @@ export default function Login({ onLoginSuccess }) {
           background-color: #ffffff;
         }
 
+        .theme-light .custom-checkbox-container input:checked + .glass-checkmark {
+          background-color: #ea580c;
+          border-color: #ea580c;
+        }
+
         .theme-light .glass-action-button {
+          background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
           color: #ffffff;
-          box-shadow: 0 6px 18px #a7f3d0;
+          box-shadow: 0 6px 18px #fed7aa;
+        }
+
+        .theme-light .glass-action-button:hover:not(:disabled) {
+          background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
         }
 
         .theme-light .glass-card-bottom {
@@ -1011,6 +1030,10 @@ export default function Login({ onLoginSuccess }) {
 
         .theme-light .telemetry-node {
           color: #94a3b8;
+        }
+
+        .theme-light .crypto-badge {
+          color: #ea580c;
         }
 
         /* ========================================================

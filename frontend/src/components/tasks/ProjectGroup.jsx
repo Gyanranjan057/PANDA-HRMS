@@ -28,12 +28,9 @@ const ProjectGroup = ({ project, items, ...handlers }) => {
             dev={handlers.getDev(task.assignedTo)}
             isAdmin={handlers.isAdmin}
             onView={() => handlers.open('view', task)}
-            onStart={() => handlers.onStart(task)}
-            onUpdate={() => handlers.open('update', task)}
-            onStatus={() => handlers.open('status', task)}
             onReassign={() => handlers.open('reassign', task)}
-            onDone={() => handlers.onSetStatus(task, 'finished')}
-            onPending={() => handlers.onSetStatus(task, 'todo')}
+            onProgress={() => handlers.onSetStatus(task, 'in-progress')}
+            onFinish={() => handlers.onSetStatus(task, 'finished')}
           />
         ))}
       </div>

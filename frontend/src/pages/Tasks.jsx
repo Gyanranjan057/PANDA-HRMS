@@ -2,13 +2,13 @@ import React, { useMemo, useState } from 'react'
 import { Icon } from '../ui'
 import {
   ALL_META, STATUS_META, calculateTaskCounts, filterTasksByStatus,
-  groupByProject, searchTasks, statusFromProgress,
+  groupByProject, searchTasks,
 } from '../lib/tasks'
 import { createTask, updateTask, deleteTask } from '../api/tasksApi'
 import TaskSummary from '../components/tasks/TaskSummary'
 import TaskFilters from '../components/tasks/TaskFilters'
 import ProjectGroup from '../components/tasks/ProjectGroup'
-import { AssignModal, ReassignModal, UpdateModal, DetailsModal } from '../components/tasks/TaskModals'
+import { AssignModal, ReassignModal, DetailsModal } from '../components/tasks/TaskModals'
 
 const Tasks = ({ tasks, setTasks, employees, notify, query, isAdmin, currentUser }) => {
   const [status, setStatus] = useState('all')
@@ -40,15 +40,8 @@ const Tasks = ({ tasks, setTasks, employees, notify, query, isAdmin, currentUser
   const setTaskStatus = (task, next) =>
     change(
       task,
-      { status: next, progress: next === 'finished' ? 100 : task.progress },
+      { status: next },
       `${task.id} moved to ${STATUS_META[next].label}`
-    )
-
-  const setTaskProgress = (task, progress) =>
-    change(
-      task,
-      { progress, status: statusFromProgress(progress, task.status) },
-      `${task.id} progress updated`
     )
 
   const reassign = (task, employeeId) =>
@@ -124,7 +117,6 @@ const Tasks = ({ tasks, setTasks, employees, notify, query, isAdmin, currentUser
 
       {modal?.type === 'assign' && <AssignModal employees={employees} projects={projects} onSave={assign} onClose={close} />}
       {modal?.type === 'reassign' && <ReassignModal task={modal.task} employees={employees} onSave={reassign} onClose={close} />}
-      {modal?.type === 'update' && <UpdateModal task={modal.task} isAdmin={isAdmin} onSave={setTaskProgress} onClose={close} />}
       {modal?.type === 'view' && (
         <DetailsModal task={modal.task} dev={getDev(modal.task.assignedTo)} isAdmin={isAdmin} onDelete={remove} onClose={close} />
       )}

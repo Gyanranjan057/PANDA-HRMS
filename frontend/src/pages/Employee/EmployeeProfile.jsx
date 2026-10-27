@@ -1,23 +1,46 @@
-
-import { useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   useLocation,
   useNavigate,
   useParams,
+  useOutletContext,
 } from "react-router-dom";
 import {
   ArrowLeft,
-  Bell,
   Briefcase,
   CalendarDays,
-  Moon,
-  Sun,
   UserRound,
 } from "lucide-react";
 
-import { useGetEmployeeByIdQuery } from "../../slice/employeeService/employeeApi";
+import { useGetEmployeeByIdQuery } from "../../slice/employeesService/employeeApi";
+import { apiRequest } from "../../utils/api";
 
 const LEAVE_QUOTA = 24;
+const dateString = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+const dateLabel = (value) => {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+const timeLabel = (value) => value
+  ? new Date(value).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+  : "—";
+const hoursWorked = (punchInAt, punchOutAt) => {
+  if (!punchInAt || !punchOutAt) return null;
+  return Math.max(0, (new Date(punchOutAt) - new Date(punchInAt)) / 3600000);
+};
 
 export default function EmployeeProfile({
   employee: employeeProp,
@@ -27,10 +50,13 @@ export default function EmployeeProfile({
   const location = useLocation();
   const navigate = useNavigate();
   const params = useParams();
+  const { admin } = useOutletContext() || {};
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [performanceError, setPerformanceError] = useState("");
+  const [isPerformanceLoading, setIsPerformanceLoading] = useState(false);
 
-  const [theme, setTheme] = useState(defaultTheme);
-
-  const dark = theme === "dark";
+  const dark = defaultTheme === "dark";
 
   const supplied =
     employeeProp || location.state?.employee;
@@ -68,13 +94,102 @@ export default function EmployeeProfile({
       ? data?.data ?? null
       : null;
 
+  useEffect(() => {
+    if (!admin || !employee || !validId) {
+      setAttendanceRecords([]);
+      setLeaveRequests([]);
+      setPerformanceError("");
+      setIsPerformanceLoading(false);
+      return undefined;
+    }
+
+    let active = true;
+    const today = new Date();
+    const fromDate = new Date(today);
+    fromDate.setDate(fromDate.getDate() - 179);
+    setIsPerformanceLoading(true);
+    setPerformanceError("");
+
+    Promise.all([
+      apiRequest(`/attendance?from=${dateString(fromDate)}&to=${dateString(today)}`),
+      apiRequest("/leave"),
+    ])
+      .then(([attendanceResult, leaveResult]) => {
+        if (!Array.isArray(attendanceResult.attendance) || !Array.isArray(leaveResult.requests)) {
+          throw new Error("The HRMS API returned invalid attendance or leave data.");
+        }
+        if (!active) return;
+        setAttendanceRecords(
+          attendanceResult.attendance
+            .filter((record) => Number(record.employeeId) === dbId)
+            .sort((a, b) => b.date.localeCompare(a.date)),
+        );
+        setLeaveRequests(
+          leaveResult.requests
+            .filter((request) => Number(request.employeeId) === dbId)
+            .sort((a, b) => b.fromDate.localeCompare(a.fromDate)),
+        );
+      })
+      .catch((loadError) => {
+        if (active) {
+          setPerformanceError(loadError.message || "Unable to load attendance and leave performance.");
+        }
+      })
+      .finally(() => {
+        if (active) setIsPerformanceLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [admin, dbId, employee, validId]);
+
+  const attendanceSummary = useMemo(() => {
+    const present = attendanceRecords.filter((record) => record.status === "Present").length;
+    const late = attendanceRecords.filter((record) => record.status === "Late").length;
+    const durations = attendanceRecords
+      .map((record) => hoursWorked(record.punchInAt, record.punchOutAt))
+      .filter((hours) => hours !== null);
+    const monthly = Array.from({ length: 6 }, (_, index) => {
+      const monthDate = new Date();
+      monthDate.setDate(1);
+      monthDate.setMonth(monthDate.getMonth() - (5 - index));
+      const key = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
+      return {
+        key,
+        label: monthDate.toLocaleDateString("en-IN", { month: "short" }),
+        count: attendanceRecords.filter((record) => record.date.startsWith(key)).length,
+      };
+    });
+    const peak = Math.max(1, ...monthly.map((month) => month.count));
+
+    return {
+      present,
+      late,
+      completedShifts: durations.length,
+      averageHours: durations.length
+        ? (durations.reduce((total, hours) => total + hours, 0) / durations.length).toFixed(1)
+        : "—",
+      monthly: monthly.map((month) => ({
+        ...month,
+        height: Math.max(4, Math.round((month.count / peak) * 100)),
+      })),
+    };
+  }, [attendanceRecords]);
+
+  const leaveSummary = useMemo(() => ({
+    pending: leaveRequests.filter((request) => request.status === "Pending").length,
+    approved: leaveRequests.filter((request) => request.status === "Approved").length,
+    rejected: leaveRequests.filter((request) => request.status === "Rejected").length,
+  }), [leaveRequests]);
+
   const back =
-    onBack || (() => navigate("/"));
+    onBack || (() => navigate("/employees"));
 
   const t = dark
     ? {
         page:
-          "bg-[#0a1519] text-slate-100",
+          "text-slate-100",
         bar:
           "bg-[#0d1a21] border-[#1f3541]",
         card:
@@ -88,7 +203,7 @@ export default function EmployeeProfile({
       }
     : {
         page:
-          "bg-slate-50 text-slate-900",
+          "text-slate-900",
         bar:
           "bg-white border-slate-200",
         card:
@@ -168,7 +283,7 @@ export default function EmployeeProfile({
             "Unable to load employee details.";
 
   return (
-    <div className={`min-h-screen ${t.page}`}>
+    <div className={`min-h-screen bg-transparent ${t.page}`}>
       <header
         className={`flex h-20 items-center justify-between border-b px-4 sm:px-8 ${t.bar}`}
       >
@@ -181,29 +296,6 @@ export default function EmployeeProfile({
           Employee Directory
         </button>
 
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() =>
-              setTheme(
-                dark ? "light" : "dark"
-              )
-            }
-            aria-label="Toggle theme"
-            className={`rounded-xl border p-3 ${t.card}`}
-          >
-            {dark ? (
-              <Moon size={18} />
-            ) : (
-              <Sun size={18} />
-            )}
-          </button>
-
-          <Bell
-            size={19}
-            className={t.muted}
-          />
-        </div>
       </header>
 
       <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-8">
@@ -324,13 +416,58 @@ export default function EmployeeProfile({
                   Attendance
                 </h2>
 
-                <p
-                  className={`mt-3 text-sm ${t.muted}`}
-                >
-                  Attendance and punch-in/out
-                  data are not connected to
-                  this profile yet.
-                </p>
+                {!admin ? (
+                  <p className={`mt-3 text-sm ${t.muted}`}>
+                    Attendance performance is available to administrators only.
+                  </p>
+                ) : performanceError ? (
+                  <p className="mt-3 text-sm text-rose-400" role="alert">{performanceError}</p>
+                ) : isPerformanceLoading ? (
+                  <p className={`mt-3 text-sm ${t.muted}`}>Loading attendance performance…</p>
+                ) : (
+                  <>
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      {[
+                        ["Present", attendanceSummary.present],
+                        ["Late", attendanceSummary.late],
+                        ["Completed shifts", attendanceSummary.completedShifts],
+                        ["Average hours", attendanceSummary.averageHours],
+                      ].map(([label, value]) => (
+                        <div key={label} className={`rounded-xl border p-3 ${t.inset}`}>
+                          <p className={`text-xs ${t.muted}`}>{label}</p>
+                          <p className="mt-1 text-lg font-bold">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-5">
+                      <p className={`mb-3 text-xs font-semibold ${t.muted}`}>Attendance by month · last 6 months</p>
+                      <div className="flex h-24 items-end justify-between gap-2" aria-label="Attendance records by month">
+                        {attendanceSummary.monthly.map((month) => (
+                          <div key={month.key} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+                            <span className={`text-[10px] ${t.muted}`}>{month.count}</span>
+                            <div className="w-full rounded-t bg-emerald-500/80" style={{ height: `${month.height}%` }} />
+                            <span className={`text-[10px] ${t.muted}`}>{month.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {attendanceRecords.length > 0 && (
+                      <div className="mt-5 space-y-2">
+                        <p className={`text-xs font-semibold ${t.muted}`}>Recent attendance</p>
+                        {attendanceRecords.slice(0, 5).map((record) => (
+                          <div key={record.id} className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs ${t.inset}`}>
+                            <span>{dateLabel(record.date)}</span>
+                            <span className={t.accent}>{record.status}</span>
+                            <span className={t.muted}>{timeLabel(record.punchInAt)} – {timeLabel(record.punchOutAt)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {attendanceRecords.length === 0 && (
+                      <p className={`mt-4 text-sm ${t.muted}`}>No attendance records are available for the last six months.</p>
+                    )}
+                  </>
+                )}
               </section>
 
               <section
@@ -344,15 +481,52 @@ export default function EmployeeProfile({
                   Leave & Performance
                 </h2>
 
-                <p
-                  className={`mt-3 text-sm ${t.muted}`}
-                >
-                  Leave history and performance
-                  charts will appear when
-                  their APIs are connected.
-                  The leave balance above
-                  comes from the Employee record.
-                </p>
+                {!admin ? (
+                  <p className={`mt-3 text-sm ${t.muted}`}>
+                    Leave performance is available to administrators only.
+                  </p>
+                ) : performanceError ? (
+                  <p className="mt-3 text-sm text-rose-400" role="alert">{performanceError}</p>
+                ) : isPerformanceLoading ? (
+                  <p className={`mt-3 text-sm ${t.muted}`}>Loading leave performance…</p>
+                ) : (
+                  <>
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      {[
+                        ["Pending", leaveSummary.pending],
+                        ["Approved", leaveSummary.approved],
+                        ["Rejected", leaveSummary.rejected],
+                      ].map(([label, value]) => (
+                        <div key={label} className={`rounded-xl border p-3 ${t.inset}`}>
+                          <p className={`text-xs ${t.muted}`}>{label}</p>
+                          <p className="mt-1 text-lg font-bold">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-5">
+                      <p className={`mb-3 text-xs font-semibold ${t.muted}`}>Recent leave requests</p>
+                      {leaveRequests.length > 0 ? (
+                        <div className="space-y-2">
+                          {leaveRequests.slice(0, 5).map((request) => (
+                            <div key={request.id} className={`rounded-lg border px-3 py-2 ${t.inset}`}>
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="text-sm font-semibold">{request.leaveType}</span>
+                                <span className={`text-xs font-semibold ${request.status === "Approved" ? "text-emerald-400" : request.status === "Rejected" ? "text-rose-400" : t.accent}`}>
+                                  {request.status}
+                                </span>
+                              </div>
+                              <p className={`mt-1 text-xs ${t.muted}`}>
+                                {dateLabel(request.fromDate)} – {dateLabel(request.toDate)} · {request.days} {request.days === 1 ? "day" : "days"}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className={`text-sm ${t.muted}`}>No leave requests are available.</p>
+                      )}
+                    </div>
+                  </>
+                )}
               </section>
             </div>
           </>

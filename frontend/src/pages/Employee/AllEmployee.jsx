@@ -1,8 +1,8 @@
-
 import { useEffect, useState } from "react";
 import {
   useLocation,
   useNavigate,
+  useOutletContext,
 } from "react-router-dom";
 import {
   Bell,
@@ -24,7 +24,8 @@ import {
   UsersRound,
 } from "lucide-react";
 
-import { useGetEmployeesQuery } from "../../slice/employeeService/employeeApi";
+import { useGetEmployeesQuery } from "../../slice/employeesService/employeeApi";
+import { apiRequest } from "../../utils/api";
 
 const PAGE_SIZE = 10;
 const THEME_KEY = "panda-employee-theme";
@@ -771,9 +772,11 @@ function EmployeePagination({
 // MAIN EMPLOYEE DIRECTORY
 export default function EmployeeDirectory({
   defaultTheme = "dark",
+  embedded = false,
 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const outletContext = useOutletContext() || {};
 
   // Theme shared with CreateEmployee.
   const [theme, setTheme] = useState(() => {
@@ -793,11 +796,19 @@ export default function EmployeeDirectory({
   const [workType, setWorkType] =
     useState("All");
 
-  const [query, setQuery] =
+  const [localQuery, setLocalQuery] =
     useState("");
+  const query = embedded && typeof outletContext.query === "string"
+    ? outletContext.query
+    : localQuery;
+  const setQuery = embedded && typeof outletContext.setQuery === "function"
+    ? outletContext.setQuery
+    : setLocalQuery;
 
   const [page, setPage] =
     useState(1);
+  const [todayAttendance, setTodayAttendance] = useState({});
+  const [attendanceError, setAttendanceError] = useState("");
 
   const dark = theme === "dark";
 
@@ -820,6 +831,12 @@ export default function EmployeeDirectory({
     }
   }, [location.state?.theme]);
 
+  useEffect(() => {
+    if (embedded && typeof outletContext.isDarkMode === "boolean") {
+      setTheme(outletContext.isDarkMode ? "dark" : "light");
+    }
+  }, [embedded, outletContext.isDarkMode]);
+
   const toggleTheme = () => {
     const nextTheme = dark
       ? "light"
@@ -832,7 +849,7 @@ export default function EmployeeDirectory({
   const openCreateEmployee = () => {
     saveTheme(theme);
 
-    navigate("/create-employee", {
+    navigate("/employees/create-employee", {
       state: {
         theme,
       },
@@ -859,6 +876,38 @@ export default function EmployeeDirectory({
     }
   );
 
+  useEffect(() => {
+    let active = true;
+    const loadTodayAttendance = async () => {
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      try {
+        const result = await apiRequest(`/attendance?from=${today}&to=${today}`);
+        if (!Array.isArray(result.attendance)) {
+          throw new Error("The attendance API returned invalid data.");
+        }
+        if (active) {
+          const recordsByEmployee = Object.fromEntries(
+            result.attendance.map((record) => [Number(record.employeeId), record]),
+          );
+          setTodayAttendance(recordsByEmployee);
+          setAttendanceError("");
+        }
+      } catch (requestError) {
+        if (active) {
+          setAttendanceError(requestError.message || "Unable to load today's attendance.");
+        }
+      }
+    };
+
+    loadTodayAttendance();
+    const intervalId = window.setInterval(loadTodayAttendance, 30000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
   const employees = (
     !isError &&
     Array.isArray(response?.data)
@@ -868,9 +917,13 @@ export default function EmployeeDirectory({
     ...employee,
     dbId: employee.id,
     avatar: employee.avatar || "",
-    punchIn: null,
-    punchOut: null,
-    attendanceStatus: "Not recorded",
+    punchIn: todayAttendance[Number(employee.id)]?.punchInAt
+      ? new Date(todayAttendance[Number(employee.id)].punchInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : null,
+    punchOut: todayAttendance[Number(employee.id)]?.punchOutAt
+      ? new Date(todayAttendance[Number(employee.id)].punchOutAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : null,
+    attendanceStatus: todayAttendance[Number(employee.id)]?.status || "Not recorded",
   }));
 
   const totalEmployees = isError
@@ -935,7 +988,7 @@ export default function EmployeeDirectory({
   const viewProfile = (employee) => {
     saveTheme(theme);
 
-    navigate("/employee-profile", {
+    navigate("/employees/employee-profile", {
       state: {
         theme,
         employeeDbId:
@@ -947,28 +1000,43 @@ export default function EmployeeDirectory({
 
   return (
     <div
-      className={`flex h-screen overflow-hidden ${t.page}`}
+      className={`${embedded ? "min-h-full" : "flex h-screen overflow-hidden"} ${t.page}`}
     >
       {/* SIDEBAR */}
-      <Sidebar
-        total={totalEmployees}
-        t={t}
-      />
+      {!embedded && <Sidebar total={totalEmployees} t={t} />}
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* TOPBAR */}
-        <Topbar
-          query={query}
-          onQuery={setQuery}
-          dark={dark}
-          onToggleTheme={toggleTheme}
-          t={t}
-        />
+        {!embedded && (
+          <Topbar
+            query={query}
+            onQuery={setQuery}
+            dark={dark}
+            onToggleTheme={toggleTheme}
+            t={t}
+          />
+        )}
 
         {/* MAIN CONTENT */}
-        <main className="flex-1 space-y-6 overflow-y-auto p-4 lg:p-8">
+        <main className={`${embedded ? "min-w-0 space-y-6" : "flex-1 space-y-6 overflow-y-auto p-4 lg:p-8"}`}>
+          {attendanceError && (
+            <p role="alert" className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">
+              Unable to load today&apos;s attendance: {attendanceError}
+            </p>
+          )}
           {/* STATS & FILTERS */}
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={openCreateEmployee}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-xs font-semibold text-white hover:bg-blue-700"
+            >
+              <Plus size={16} />
+              Create Employee
+            </button>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <StatCard
               label="Matching Employees"
               value={totalEmployees}
@@ -1001,17 +1069,6 @@ export default function EmployeeDirectory({
               }
               t={t}
             />
-
-            <div className="flex items-start justify-end">
-              <button
-                type="button"
-                onClick={openCreateEmployee}
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-xs font-semibold text-white hover:bg-blue-700"
-              >
-                <Plus size={16} />
-                Create Employee
-              </button>
-            </div>
           </div>
 
           {/* SOLID EMPLOYEE TABLE */}

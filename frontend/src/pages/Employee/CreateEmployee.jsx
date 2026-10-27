@@ -17,7 +17,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 
-import { useCreateEmployeeMutation } from "../../slice/employeeService/employeeApi";
+import { useCreateEmployeeMutation } from "../../slice/employeesService/employeeApi";
 
 const THEME_KEY = "panda-employee-theme";
 
@@ -39,8 +39,8 @@ const INITIAL_FORM = {
   workType: "Full Time",
   role: "",
   leaveBalance: "",
-  password: "",
-  confirmPassword: "",
+  password: "Panda@123",
+  confirmPassword: "Panda@123",
 };
 
 function validTheme(value) {
@@ -90,7 +90,7 @@ export default function CreateEmployee({
 
   const t = dark
     ? {
-        page: "bg-[#07151b] text-slate-100",
+        page: "bg-transparent text-slate-100",
 
         glass:
           "border-white/20 bg-white/[0.08] shadow-black/40",
@@ -118,7 +118,7 @@ export default function CreateEmployee({
           "border-rose-400/40 bg-rose-500/10 text-rose-300",
       }
     : {
-        page: "bg-[#e9f0f6] text-slate-900",
+        page: "bg-transparent text-slate-900",
 
         glass:
           "border-white/70 bg-white/45 shadow-slate-400/20",
@@ -147,7 +147,7 @@ export default function CreateEmployee({
       };
 
   const closeForm = () => {
-    navigate("/", {
+    navigate("/employees", {
       replace: true,
       state: {
         theme,
@@ -240,7 +240,7 @@ export default function CreateEmployee({
     try {
       await createEmployee(payload).unwrap();
 
-      navigate("/", {
+      navigate("/employees", {
         replace: true,
         state: {
           theme,

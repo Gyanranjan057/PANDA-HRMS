@@ -20,8 +20,7 @@ const SUMMARY_CARDS = [
     label: 'In Progress',
     valueColor: 'text-sky-400',
     linkColor: 'text-sky-400',
-    description: counts =>
-      counts.projectNames['in-progress'] || 'Nothing active',
+    description: counts => counts.projectNames['in-progress'] || 'Nothing active',
   },
   {
     id: 'finished',
@@ -34,7 +33,7 @@ const SUMMARY_CARDS = [
 ]
 
 const TaskSummary = ({ counts, active, onSelect }) => (
-  <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+  <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
     {SUMMARY_CARDS.map(card => {
       const isSelected = active === card.id
       const linkLabel = card.linkLabel || 'Only →'

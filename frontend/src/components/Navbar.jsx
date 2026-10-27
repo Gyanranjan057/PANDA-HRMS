@@ -376,16 +376,20 @@ import { Moon, Sun } from "lucide-react";
 import {
   getCurrentSession,
   logoutFromLocalStorage,
+  SESSION_CHANGE_EVENT,
 } from "../utils/authStorage";
 
 function readStoredUser() {
   const session = getCurrentSession();
-  if (session?.user) return session.user;
+  if (session?.user && typeof session.user === "object") {
+    return session.user;
+  }
 
   try {
     const savedUser =
       localStorage.getItem("user") || sessionStorage.getItem("user");
-    return savedUser ? JSON.parse(savedUser) : null;
+    const parsedUser = savedUser ? JSON.parse(savedUser) : null;
+    return parsedUser?.user || parsedUser;
   } catch (error) {
     console.warn("Unable to read saved user profile:", error);
     return null;
@@ -481,12 +485,13 @@ export default function Navbar({
   onSearchChange,
   notifications = [],
   onClearNotifications,
+  notificationsOpen,
+  onNotificationsToggle,
 }) {
   const navigate = useNavigate();
-  const currentUser = readStoredUser();
-  const displayName = currentUser?.name || "Guest User";
+  const [currentUser, setCurrentUser] = useState(readStoredUser);
   const displayRole = currentUser?.role || "Employee";
-  const displayEmail = currentUser?.email || "";
+  const displayEmail = currentUser?.email || currentUser?.username || "";
   const isAdmin = [
     "admin",
     "administrator",
@@ -495,8 +500,13 @@ export default function Navbar({
     "hr super admin",
     "superadmin",
   ].includes(String(displayRole).trim().toLowerCase());
+  const displayName =
+    currentUser?.name ||
+    currentUser?.fullName ||
+    displayEmail.split("@")[0] ||
+    (isAdmin ? "Administrator" : "Employee");
   const initials =
-    displayName
+    (currentUser?.name || displayEmail.split("@")[0] || displayName)
       .split(/\s+/)
       .filter(Boolean)
       .slice(0, 2)
@@ -506,9 +516,18 @@ export default function Navbar({
 
   const [isDarkMode, setIsDarkMode] = useState(initialDarkMode);
   const [searchQuery, setSearchQuery] = useState("");
-  const [unreadNotifications, setUnreadNotifications] = useState(3);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const isNotificationsOpen = notificationsOpen;
+
+  useEffect(() => {
+    const updateStoredUser = () => setCurrentUser(readStoredUser());
+    window.addEventListener(SESSION_CHANGE_EVENT, updateStoredUser);
+    window.addEventListener("storage", updateStoredUser);
+    return () => {
+      window.removeEventListener(SESSION_CHANGE_EVENT, updateStoredUser);
+      window.removeEventListener("storage", updateStoredUser);
+    };
+  }, []);
 
   useEffect(() => {
     setIsDarkMode(initialDarkMode);
@@ -522,11 +541,14 @@ export default function Navbar({
 
   useEffect(() => {
     const closeProfile = (event) => {
-      if (event.key === "Escape") setIsProfileOpen(false);
+      if (event.key === "Escape") {
+        setIsProfileOpen(false);
+        if (isNotificationsOpen) onNotificationsToggle?.();
+      }
     };
     window.addEventListener("keydown", closeProfile);
     return () => window.removeEventListener("keydown", closeProfile);
-  }, []);
+  }, [isNotificationsOpen, onNotificationsToggle]);
 
   const goToPage = (path) => {
     navigate(path);
@@ -548,15 +570,31 @@ export default function Navbar({
         strip: "bg-[#05100f] border-[#0e2924]",
         control: "bg-[#092420] border-[#13453d] text-slate-300",
         input: "bg-[#051210] border-[#123d36] text-white placeholder:text-slate-500",
-        dropdown: "bg-[#081a18] border-[#123832]",
+        dropdown: "bg-[#081a18]/80 border-[#123832] backdrop-blur-xl",
       }
     : {
         root: "bg-white text-slate-900 border-slate-200",
         strip: "bg-slate-50 border-slate-200",
         control: "bg-slate-50 border-slate-300 text-slate-700",
         input: "bg-white border-slate-300 text-slate-900 placeholder:text-slate-400",
-        dropdown: "bg-white border-slate-200",
+        dropdown: "bg-white/80 border-slate-200 backdrop-blur-xl",
       };
+
+  const notificationMenu = isNotificationsOpen && (
+    <div className={`absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-1.5rem)] rounded-xl border p-2 shadow-xl ${colors.dropdown}`}>
+      <div className="flex items-center justify-between border-b border-slate-500/20 px-2 pb-2">
+        <span className="text-sm font-semibold">Notifications</span>
+        {notifications.length > 0 && (
+          <button type="button" className="text-xs text-emerald-500" onClick={onClearNotifications}>Clear all</button>
+        )}
+      </div>
+      <div className="max-h-72 overflow-y-auto">
+        {notifications.length > 0
+          ? notifications.map((note, index) => <p key={note?.id || `${note?.message || note}-${index}`} className="border-b border-slate-500/20 px-2 py-2 text-xs text-slate-500">{note?.message || note}</p>)
+          : <p className="px-2 py-3 text-xs text-slate-500">No notifications</p>}
+      </div>
+    </div>
+  );
 
   return (
     <header className={`relative z-30 w-full min-w-0 border-b ${colors.root}`}>
@@ -572,20 +610,44 @@ export default function Navbar({
         >
           <Icon name="menu" className="h-6 w-6" />
         </button>
+        <div className="relative ml-auto">
+          <button
+            type="button"
+            onClick={onNotificationsToggle}
+            title="Notifications"
+            aria-label={`Notifications${notifications.length ? `, ${notifications.length} new` : ""}`}
+            aria-expanded={isNotificationsOpen}
+            aria-haspopup="true"
+            className={`relative grid h-9 w-9 place-items-center rounded-full border transition hover:border-emerald-500 ${colors.control}`}
+          >
+            <Icon name="bell" className="h-4 w-4" />
+            {notifications.length > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] font-bold text-white">{notifications.filter(note => typeof note === "string" || !note.isRead).length > 9 ? "9+" : notifications.filter(note => typeof note === "string" || !note.isRead).length}</span>}
+          </button>
+          {notificationMenu}
+        </div>
         <button
           type="button"
           onClick={toggleTheme}
           title={`Switch to ${isDarkMode ? "light" : "dark"} theme`}
           aria-label={`Switch to ${isDarkMode ? "light" : "dark"} theme`}
-          className={`ml-auto grid h-9 w-9 place-items-center rounded-full border transition hover:border-emerald-500 ${colors.control}`}
+          className={`ml-2 grid h-9 w-9 place-items-center rounded-full border transition hover:border-emerald-500 ${colors.control}`}
         >
           {isDarkMode ? <Moon size={16} /> : <Sun size={16} />}
         </button>
-        <span className="ml-3 font-bold">Panda Workspace</span>
       </div>
 
       {/* Tablet and desktop navbar */}
       <div className="hidden min-w-0 flex-wrap items-center gap-4 px-5 py-3 sm:flex lg:flex-nowrap lg:px-6">
+        <button
+          type="button"
+          onClick={onMenuClick}
+          aria-label="Open sidebar"
+          aria-controls="home-sidebar"
+          title="Open navigation"
+          className={`hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition hover:border-emerald-500 sm:flex lg:hidden ${colors.control}`}
+        >
+          <Icon name="menu" className="h-6 w-6" />
+        </button>
         <button
           type="button"
           onClick={() => goToPage(isAdmin ? "/home" : "/employee/dashboard")}
@@ -621,45 +683,21 @@ export default function Navbar({
         )}
 
         <div className={`ml-auto flex shrink-0 items-center gap-2 ${isAdmin ? "lg:ml-0" : ""}`}>
-          {/* <button
-            type="button"
-            onClick={toggleTheme}
-            title="Change theme"
-            className={`flex h-9 items-center justify-center gap-2 rounded-full border px-3 text-xs font-bold hover:border-emerald-500 ${colors.control}`}
-          >
-            <span>{isDarkMode ? "☀️" : "🌙"}</span>
-            <span className="hidden md:inline">Theme</span>
-          </button> */}
-
-          {/* <button
-            type="button"
-            onClick={() => {
-              setIsNotificationsOpen((open) => !open);
-              setUnreadNotifications(0);
-            }}
-            title="Notifications"
-            aria-label="Notifications"
-            aria-expanded={isNotificationsOpen}
-            className={`relative flex h-9 w-9 items-center justify-center rounded-full border hover:border-emerald-500 ${colors.control}`}
-          >
-            <Icon name="bell" className="h-5 w-5" />
-            {(notifications.length > 0 || unreadNotifications > 0) && (
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-emerald-500" />
-            )}
-          </button> */}
-          {isNotificationsOpen && (
-            <div className={`absolute right-16 top-full z-40 mt-2 w-64 rounded-xl border p-2 shadow-xl ${colors.dropdown}`}>
-              <div className="flex items-center justify-between border-b border-slate-500/20 px-2 pb-2">
-                <span className="text-sm font-semibold">Notifications</span>
-                {notifications.length > 0 && (
-                  <button type="button" className="text-xs text-emerald-500" onClick={onClearNotifications}>Clear</button>
-                )}
-              </div>
-              {notifications.length > 0
-                ? notifications.map((note, index) => <p key={`${note}-${index}`} className="border-b border-slate-500/20 px-2 py-2 text-xs text-slate-500">{note}</p>)
-                : <p className="px-2 py-3 text-xs text-slate-500">No notifications</p>}
-            </div>
-          )}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={onNotificationsToggle}
+              title="Notifications"
+              aria-label={`Notifications${notifications.length ? `, ${notifications.length} new` : ""}`}
+              aria-expanded={isNotificationsOpen}
+              aria-haspopup="true"
+              className={`relative grid h-10 w-10 place-items-center rounded-full border transition hover:border-emerald-500 ${colors.control}`}
+            >
+              <Icon name="bell" className="h-5 w-5" />
+              {notifications.length > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] font-bold text-white">{notifications.filter(note => typeof note === "string" || !note.isRead).length > 9 ? "9+" : notifications.filter(note => typeof note === "string" || !note.isRead).length}</span>}
+            </button>
+            {notificationMenu}
+          </div>
 
           {/* Theme toggle (left side of the profile) */}
           <button
@@ -705,7 +743,6 @@ export default function Navbar({
                     <p className="mt-1 break-words text-[10px] text-slate-500">
                       {displayEmail || "Work email not available"}
                     </p>
-                    <p className="mt-1 text-[10px] font-semibold text-emerald-500">{displayRole}</p>
                   </div>
 
                   <button
@@ -713,18 +750,8 @@ export default function Navbar({
                     onClick={() => goToPage("/settings")}
                     className="w-full rounded-lg px-3 py-2 text-left text-xs hover:bg-emerald-500/10"
                   >
-                    My Profile / Settings
+                    My Profile
                   </button>
-
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => goToPage("/control-center")}
-                      className="w-full rounded-lg px-3 py-2 text-left text-xs hover:bg-emerald-500/10"
-                    >
-                      Control Center
-                    </button>
-                  )}
 
                   <button
                     type="button"

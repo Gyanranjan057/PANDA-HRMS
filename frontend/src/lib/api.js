@@ -1,13 +1,17 @@
+import { getAuthToken, handleUnauthorized } from '../utils/api'
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 let saveQueue = Promise.resolve()
 
 async function request(path, options) {
+  const headers = new Headers(options?.headers || {})
+  headers.set('Content-Type', 'application/json')
+  const token = getAuthToken()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
+    headers,
   })
 
   if (!response.ok) {
@@ -18,7 +22,10 @@ async function request(path, options) {
     } catch {
       // Keep the HTTP status message when the server response is not JSON.
     }
-    throw new Error(message)
+    if (response.status === 401 && token) handleUnauthorized()
+    const error = new Error(message)
+    error.status = response.status
+    throw error
   }
 
   return response.json()

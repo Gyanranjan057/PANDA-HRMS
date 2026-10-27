@@ -461,9 +461,9 @@ export default function Settings({ onClose }) {
 
           height: 100vh;
 
-          background-color: #030807;
-
-          opacity: 0.98;
+          background-color: rgba(3, 8, 7, 0.34);
+          -webkit-backdrop-filter: blur(4px);
+          backdrop-filter: blur(4px);
 
           display: flex;
 
@@ -941,6 +941,83 @@ export default function Settings({ onClose }) {
 
           transform: translateY(-1px);
 
+        }
+
+        :root[data-theme="light"] .settings-backdrop {
+          background-color: rgba(15, 23, 42, 0.16);
+        }
+
+        :root[data-theme="dark"] .settings-modal-card {
+          background-color: rgba(11, 26, 24, 0.88);
+          border-color: rgba(20, 66, 56, 0.8);
+          box-shadow: 0 25px 50px rgba(0, 0, 0, 0.28), 0 0 30px rgba(6, 43, 36, 0.2);
+        }
+
+        :root[data-theme="light"] .settings-modal-card {
+          background-color: rgba(255, 255, 255, 0.88);
+          border-color: rgba(253, 186, 116, 0.8);
+          box-shadow: 0 25px 50px rgba(15, 23, 42, 0.12), 0 0 30px rgba(255, 244, 232, 0.5);
+        }
+
+        :root[data-theme="light"] .settings-modal-card .modal-title,
+        :root[data-theme="light"] .settings-modal-card .avatar-title,
+        :root[data-theme="light"] .settings-modal-card .close-btn {
+          color: #0f172a;
+        }
+
+        :root[data-theme="light"] .settings-modal-card .avatar-section {
+          background-color: rgba(255, 244, 232, 0.65);
+          border-color: #fed7aa;
+        }
+
+        :root[data-theme="light"] .settings-modal-card .avatar-subtitle,
+        :root[data-theme="light"] .settings-modal-card .field-label {
+          color: #64748b;
+        }
+
+        :root[data-theme="light"] .settings-modal-card .text-input {
+          background-color: rgba(255, 255, 255, 0.78);
+          border-color: #e2e8f0;
+          color: #0f172a;
+        }
+
+        :root[data-theme="light"] .settings-modal-card .text-input-access {
+          color: #ea580c;
+        }
+
+        :root[data-theme="light"] .settings-modal-card .browse-btn {
+          background-color: rgba(255, 244, 232, 0.8);
+          border-color: #fdba74;
+          color: #c2410c;
+        }
+
+        :root[data-theme="light"] .settings-modal-card .cancel-btn {
+          background-color: rgba(248, 250, 252, 0.8);
+          border-color: #e2e8f0;
+          color: #475569;
+        }
+
+        :root[data-theme="light"] .settings-modal-card .cancel-btn:hover {
+          background-color: #fff4e8;
+          color: #0f172a;
+        }
+
+        :root[data-theme="light"] .settings-modal-card .save-btn {
+          background-color: #ea580c;
+          color: #ffffff;
+          box-shadow: 0 4px 14px rgba(234, 88, 12, 0.2);
+        }
+
+        :root[data-theme="light"] .settings-modal-card .save-btn:hover {
+          background-color: #c2410c;
+        }
+
+        :root[data-theme="light"] .settings-modal-card .header-icon-wrap {
+          color: #ea580c;
+        }
+
+        :root[data-theme="light"] .settings-modal-card .header-icon-wrap svg {
+          stroke: #ea580c;
         }
 
       `}</style>

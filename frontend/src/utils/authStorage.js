@@ -2,6 +2,11 @@ import { apiRequest, getAuthToken } from './api'
 
 const SESSION_KEY = 'panda_session'
 const AUTH_KEYS = [SESSION_KEY, 'token', 'user', 'userInfo', 'role', 'email']
+const SESSION_CHANGE_EVENT = 'panda-session-change'
+
+function notifySessionChange() {
+  window.dispatchEvent(new Event(SESSION_CHANGE_EVENT))
+}
 
 export const loginWithBackend = async (identifier, password, rememberMe = true) => {
   try {
@@ -17,6 +22,7 @@ export const loginWithBackend = async (identifier, password, rememberMe = true) 
     storage.setItem('token', result.token)
     storage.setItem('user', JSON.stringify(result.user))
     for (const key of AUTH_KEYS) otherStorage.removeItem(key)
+    notifySessionChange()
 
     return { ok: true, ...result }
   } catch (error) {
@@ -56,6 +62,7 @@ export function logoutFromLocalStorage() {
   for (const storage of [localStorage, sessionStorage]) {
     for (const key of AUTH_KEYS) storage.removeItem(key)
   }
+  notifySessionChange()
 }
 
-export { getAuthToken }
+export { getAuthToken, SESSION_CHANGE_EVENT }

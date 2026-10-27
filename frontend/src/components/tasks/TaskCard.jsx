@@ -1,21 +1,20 @@
 
 import { Avatar, Icon } from '../../ui'
-import { projectMeta, STATUS_META } from '../../lib/tasks'
+import { projectMeta } from '../../lib/tasks'
+import { StatusBadge } from './Badges'
 
 const TaskCard = ({
   task,
   dev,
   isAdmin,
   onView,
-  onUpdate,
   onReassign,
-  onDone,
-  onPending,
+  onProgress,
+  onFinish,
 }) => {
   const project = projectMeta(task.project)
-  const status = STATUS_META[task.status]
   const isFinished = task.status === 'finished'
-  const isTodo = task.status === 'todo'
+  const progress = Math.max(0, Math.min(100, Number(task.progress || 0)))
 
   return (
     <article className="panel flex flex-col p-5 transition duration-200 hover:-translate-y-0.5 hover:border-brand/40">
@@ -45,25 +44,14 @@ const TaskCard = ({
       </p>
 
       <div className="mt-4">
-        <div className="mb-1.5 flex justify-between text-xs">
-          <span className="text-mute">Progress</span>
-          <span className={`font-semibold ${status.text}`}>
-            {task.progress}%
-          </span>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <StatusBadge status={task.status} />
+          <span className="text-xs font-semibold text-mute">{progress}%</span>
         </div>
-
-        <div
-          className="h-2 rounded-full bg-app"
-          role="progressbar"
-          aria-valuenow={task.progress}
-          aria-valuemin="0"
-          aria-valuemax="100"
-        >
+        <div className="h-2 overflow-hidden rounded-full bg-line">
           <div
-            className={`h-2 rounded-full transition-all duration-500 ${
-              isFinished ? 'bg-emerald-400' : 'bg-brand'
-            }`}
-            style={{ width: `${task.progress}%` }}
+            className={`h-full rounded-full transition-all ${task.status === 'finished' ? 'bg-emerald-400' : task.status === 'in-progress' ? 'bg-sky-400' : 'bg-amber-400'}`}
+            style={{ width: `${progress}%` }}
           />
         </div>
       </div>
@@ -89,56 +77,30 @@ const TaskCard = ({
           </div>
         </div>
 
-        {isAdmin && (
+        {!isAdmin && (
           <div className="flex shrink-0 gap-2">
-            <button
-              type="button"
-              onClick={onDone}
-              disabled={isFinished}
-              className={`btn-ghost !px-4 !py-2 !border-brand/50 text-brand disabled:cursor-default ${
-                isFinished ? 'bg-brand/10' : ''
-              }`}
-            >
-              Done
-            </button>
-
-            <button
-              type="button"
-              onClick={onPending}
-              disabled={isTodo}
-              className={`btn-ghost !px-4 !py-2 !border-amber-400/50 text-amber-400 disabled:cursor-default ${
-                isTodo ? 'bg-amber-400/10' : ''
-              }`}
-            >
-              Pending
-            </button>
+            {task.status === 'todo' && (
+              <button type="button" onClick={onProgress} className="btn-ghost !border-sky-400/50 !px-3 !py-2 text-sky-400">
+                Start
+              </button>
+            )}
+            {task.status !== 'finished' && (
+              <button type="button" onClick={onFinish} className="btn-ghost !border-brand/50 !px-3 !py-2 text-brand">
+                Finish
+              </button>
+            )}
           </div>
         )}
       </div>
 
       <div className="mt-3 flex gap-3">
-        {isAdmin ? (
-          <button
-            type="button"
-            onClick={isFinished ? onView : onReassign}
-            className="btn-ghost flex-1 justify-center"
-          >
-            {isFinished ? 'View' : 'Reassign Dev'}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={onUpdate}
-            disabled={isFinished}
-            className="btn-ghost flex-1 justify-center !border-brand/60 text-brand disabled:cursor-default disabled:!border-emerald-400/40 disabled:text-emerald-400"
-          >
-            {isFinished && <Icon name="check" className="h-4 w-4" />}
-            {isFinished ? 'Completed' : 'Update'}
-            {!isFinished && (
-              <Icon name="arrowRight" className="h-4 w-4" />
-            )}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={!isAdmin || isFinished ? onView : onReassign}
+          className="btn-ghost flex-1 justify-center"
+        >
+          {!isAdmin || isFinished ? 'View Details' : 'Reassign Dev'}
+        </button>
       </div>
     </article>
   )
